@@ -8,15 +8,17 @@ import '../models/booking.dart';
 import '../models/movie.dart';
 import '../models/session.dart';
 import '../styles/app_styles.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class BookingCard extends StatelessWidget {
-  final Booking bookig;
+  final Booking booking;
   final Movie? movie;
   final Session? session;
 
   // 🔥 ДОБАВИЛИ
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
+  final String? userName; // имя пользователя (показывается кассиру)
 
   const BookingCard({
     super.key,
@@ -25,6 +27,7 @@ class BookingCard extends StatelessWidget {
     this.session,
     this.onApprove,
     this.onReject,
+    this.userName,
   });
 
   @override
@@ -69,21 +72,53 @@ class BookingCard extends StatelessWidget {
 
             const SizedBox(height: 6),
 
+            // ── Пользователь (только для кассира) ────────
+            if (userName != null) ...[
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.person_outline,
+                    size: 13, color: AppStyles.textSecond),
+                const SizedBox(width: 4),
+                Text(userName!, style: AppStyles.caption),
+              ]),
+            ],
+
             // ── Итоговая сумма ───────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Создана: ${_formatDate(booking.createdAt)}',
-                  style: AppStyles.caption,
-                ),
-                Text(
-                  '${booking.totalPrice.toStringAsFixed(0)} ₽',
-                  style: AppStyles.body.copyWith(
-                      color: AppStyles.accent, fontWeight: FontWeight.bold),
-                ),
-              ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${booking.totalPrice.toStringAsFixed(0)} ₽',
+                style: AppStyles.body.copyWith(
+                    color: AppStyles.accent, fontWeight: FontWeight.bold),
+              ),
             ),
+
+            // ── QR-код для одобренной брони (только зрителю) ──
+            if (booking.status == BookingStatus.approved &&
+                onApprove == null) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: GestureDetector(
+                  onTap: () => _showQrFullscreen(context),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(AppStyles.radiusS),
+                        ),
+                        child: _QrWidget(data: _qrData(), size: 120),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Нажмите для увеличения',
+                          style: AppStyles.caption.copyWith(fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             // 🔥 КНОПКИ ДЛЯ КАССИРА
             if (onApprove != null || onReject != null) ...[
@@ -115,6 +150,64 @@ class BookingCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── QR данные ────────────────────────────────
+  String _qrData() {
+    return 'CINEMA:${booking.id}|${booking.movieId}|${booking.userId}|${booking.seatIds.join(",")}|${booking.totalPrice.toStringAsFixed(0)}';
+  }
+
+  void _showQrFullscreen(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppStyles.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppStyles.radiusL)),
+        child: Padding(
+          padding: const EdgeInsets.all(AppStyles.paddingL),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Ваш билет', style: AppStyles.title),
+              const SizedBox(height: 8),
+              Text(
+                movie?.title ?? '',
+                style: AppStyles.subtitle,
+                textAlign: TextAlign.center,
+              ),
+              if (session != null)
+                Text(session!.formattedDateTime, style: AppStyles.caption),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppStyles.radiusM),
+                ),
+                child: _QrWidget(data: _qrData(), size: 220),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Места: ${booking.seatIds.join(", ")}',
+                style: AppStyles.caption,
+              ),
+              Text(
+                '${booking.totalPrice.toStringAsFixed(0)} ₽',
+                style: AppStyles.body.copyWith(
+                    color: AppStyles.accent, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Закрыть',
+                    style: TextStyle(color: AppStyles.textSecond)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -223,6 +316,31 @@ class _StatusBadge extends StatelessWidget {
         status.label,
         style: AppStyles.caption
             .copyWith(color: text, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+// ── QR виджет ────────────────────────────────────────────────
+class _QrWidget extends StatelessWidget {
+  final String data;
+  final double size;
+  const _QrWidget({required this.data, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return QrImageView(
+      data: data,
+      version: QrVersions.auto,
+      size: size,
+      backgroundColor: Colors.white,
+      eyeStyle: const QrEyeStyle(
+        eyeShape: QrEyeShape.square,
+        color: Colors.black,
+      ),
+      dataModuleStyle: const QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.square,
+        color: Colors.black,
       ),
     );
   }
