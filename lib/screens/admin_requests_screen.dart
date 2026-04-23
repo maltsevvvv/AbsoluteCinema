@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import '../models/booking.dart';
 import '../models/movie.dart';
 import '../models/session.dart';
+import '../models/user.dart';
 import '../services/storage_service.dart';
 import '../styles/app_styles.dart';
 import '../widgets/booking_card.dart';
@@ -42,6 +43,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen>
   List<Booking> _rejected = [];
   List<Movie> _movies = [];
   List<Session> _sessions = [];
+  List<AppUser> _users = [];
   bool _isLoading = true;
 
   @override
@@ -63,6 +65,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen>
     final bookings = await _storage.loadBookings();
     final movies = await _storage.loadMoviesCache();
     final sessions = await _storage.loadSessions();
+    final users = await _storage.loadUsers();
 
     setState(() {
       _pending = bookings
@@ -79,6 +82,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen>
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       _movies = movies;
       _sessions = sessions;
+      _users = users;
       _isLoading = false;
     });
   }
@@ -88,6 +92,14 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen>
       return _movies.firstWhere((m) => m.id == id);
     } catch (_) {
       return null;
+    }
+  }
+
+  String? _userNameById(String userId) {
+    try {
+      return _users.firstWhere((u) => u.id == userId).login;
+    } catch (_) {
+      return userId;
     }
   }
 
@@ -255,6 +267,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen>
           booking: booking,
           movie: _movieById(booking.movieId),
           session: _sessionById(booking.sessionId),
+          userName: _userNameById(booking.userId),
           onApprove: showActions ? () => _approve(booking) : null,
           onReject: showActions ? () => _reject(booking) : null,
         );
